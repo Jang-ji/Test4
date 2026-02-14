@@ -236,6 +236,7 @@ async function buildState() {
     supportsRealtimeSse: false,
     pollIntervalMs: POLL_INTERVAL_MS,
     serverTime: nowIso,
+    lastPollCompletedAt: nowIso,
     accounts: accountStates,
   };
 }

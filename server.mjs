@@ -59,6 +59,7 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 
 const clients = new Set();
 const accounts = [];
+let lastPollCompletedAt = "";
 
 function jsonResponse(res, statusCode, payload) {
   res.writeHead(statusCode, {
@@ -336,8 +337,11 @@ async function refreshOneAccount(account) {
 
 async function pollAccounts() {
   await Promise.allSettled(accounts.map((account) => refreshOneAccount(account)));
+  lastPollCompletedAt = new Date().toISOString();
   broadcastEvent("state", {
-    serverTime: new Date().toISOString(),
+    serverTime: lastPollCompletedAt,
+    pollIntervalMs: POLL_INTERVAL_MS,
+    lastPollCompletedAt,
     accounts: accounts.map(serializeAccount),
   });
 }
@@ -428,6 +432,8 @@ async function handleAddAccount(req, res) {
     jsonResponse(res, 201, { account: serializeAccount(newAccount) });
     broadcastEvent("state", {
       serverTime: new Date().toISOString(),
+      pollIntervalMs: POLL_INTERVAL_MS,
+      lastPollCompletedAt,
       accounts: accounts.map(serializeAccount),
     });
   } catch (error) {
@@ -452,6 +458,7 @@ const server = http.createServer(async (req, res) => {
       supportsRealtimeSse: true,
       pollIntervalMs: POLL_INTERVAL_MS,
       serverTime: new Date().toISOString(),
+      lastPollCompletedAt,
       accounts: accounts.map(serializeAccount),
     });
     return;

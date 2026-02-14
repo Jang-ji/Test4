@@ -6,15 +6,16 @@
     <title>X K-POP 알림 보드</title>
     <style>
       :root {
-        --bg: #000000;
-        --surface: #000000;
-        --surface-soft: #16181c;
-        --line: #2f3336;
-        --text: #e7e9ea;
-        --muted: #71767b;
-        --accent: #1d9bf0;
-        --accent-soft: rgba(29, 155, 240, 0.18);
-        --danger: #f4212e;
+        --bg: #efefef;
+        --surface: #ffffff;
+        --surface-soft: #f4f4f4;
+        --line: #d1d1d1;
+        --line-strong: #9a9a9a;
+        --text: #121212;
+        --muted: #4a4a4a;
+        --accent: #111111;
+        --accent-soft: rgba(0, 0, 0, 0.1);
+        --danger: #1f1f1f;
       }
 
       * {
@@ -34,9 +35,9 @@
         line-height: 1.4;
         font-family: "Pretendard", "SUIT", "Noto Sans KR", sans-serif;
         background:
-          radial-gradient(1200px 520px at 95% -10%, rgba(29, 155, 240, 0.12), transparent 55%),
-          radial-gradient(1000px 480px at -10% 110%, rgba(29, 155, 240, 0.08), transparent 60%),
-          var(--bg);
+          radial-gradient(1200px 520px at 95% -10%, rgba(0, 0, 0, 0.08), transparent 55%),
+          radial-gradient(1000px 480px at -10% 110%, rgba(0, 0, 0, 0.04), transparent 60%),
+          #000000;
       }
 
       .wrap {
@@ -60,7 +61,7 @@
         padding: clamp(14px, 3.4vw, 22px);
         border-radius: 18px;
         backdrop-filter: blur(10px);
-        background: rgba(0, 0, 0, 0.84);
+        background: rgba(255, 255, 255, 0.92);
         animation: rise 420ms ease-out both;
       }
 
@@ -84,6 +85,32 @@
         display: grid;
         grid-template-columns: 1fr;
         gap: 8px;
+      }
+
+      .artist-filters {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .artist-filter-btn {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface-soft);
+        color: var(--muted);
+        padding: 8px 12px;
+        font-size: 0.84rem;
+        font-weight: 600;
+        white-space: nowrap;
+        flex: 0 0 auto;
+      }
+
+      .artist-filter-btn.is-active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--text);
       }
 
       .pill {
@@ -136,6 +163,10 @@
         gap: 12px;
       }
 
+      .cards.single-artist-view {
+        grid-template-columns: 1fr;
+      }
+
       .card {
         border-radius: 16px;
         padding: 14px;
@@ -168,15 +199,15 @@
       }
 
       .tweet-item {
-        border: 1px solid var(--line);
+        border: 2px solid var(--line-strong);
         border-radius: 12px;
         padding: 11px;
-        background: rgba(255, 255, 255, 0.01);
+        background: #fcfcfc;
         transition: background-color 140ms ease;
       }
 
       .tweet-item:hover {
-        background: rgba(231, 233, 234, 0.04);
+        background: #f0f0f0;
       }
 
       .tweet-text {
@@ -200,7 +231,7 @@
         border-radius: 12px;
         overflow: hidden;
         border: 1px solid var(--line);
-        background: #0f1115;
+        background: #e8e8e8;
         aspect-ratio: 1 / 1;
       }
 
@@ -292,7 +323,7 @@
         padding: 10px;
         max-height: min(28vh, 220px);
         overflow: auto;
-        background: #0f1115;
+        background: #f6f6f6;
         font-size: 0.84rem;
       }
 
@@ -331,6 +362,11 @@
 
         #notifyBtn {
           width: auto;
+        }
+
+        .artist-filters {
+          overflow-x: visible;
+          flex-wrap: wrap;
         }
 
         .cards {
@@ -385,6 +421,7 @@
           <span id="connPill" class="pill">연결 상태: 확인 중</span>
           <span id="pollPill" class="pill">주기: -</span>
         </div>
+        <div id="artistFilters" class="artist-filters" aria-label="아티스트 필터"></div>
       </section>
 
       <section>
@@ -418,6 +455,7 @@
       const formMsg = document.querySelector("#formMsg");
       const logEl = document.querySelector("#log");
       const addSubmitBtn = addForm.querySelector("button[type='submit']");
+      const artistFiltersEl = document.querySelector("#artistFilters");
 
       const state = {
         accounts: [],
@@ -425,10 +463,13 @@
         canPersistAccounts: true,
         supportsRealtimeSse: true,
         pollIntervalMs: 30000,
+        selectedArtist: "all",
       };
       const latestTweetByUsername = new Map();
       let hasInitialSnapshot = false;
       let pollTimer = null;
+      let pollCountdownTimer = null;
+      let nextPollAt = 0;
       let loggedTokenMissing = false;
       let loggedPollingMode = false;
 
@@ -457,8 +498,113 @@
           .replaceAll("'", "&#039;");
       }
 
+      function normalizeUsername(value) {
+        return String(value ?? "").trim().toLowerCase();
+      }
+
+      function formatCountdown(totalSeconds) {
+        const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+        return `${safeSeconds}초`;
+      }
+
+      function parseIsoTimeToMs(value) {
+        if (!value) {
+          return NaN;
+        }
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : NaN;
+      }
+
+      function renderPollCountdown() {
+        const fallbackSeconds = Math.ceil(state.pollIntervalMs / 1000);
+        const remainingSeconds = nextPollAt ? Math.ceil((nextPollAt - Date.now()) / 1000) : fallbackSeconds;
+        pollPill.textContent = `주기: ${formatCountdown(remainingSeconds)}`;
+      }
+
+      function syncCountdownFromPayload(data) {
+        let baseMs = parseIsoTimeToMs(data?.lastPollCompletedAt);
+
+        if (!Number.isFinite(baseMs)) {
+          const checkedMsList = (Array.isArray(data?.accounts) ? data.accounts : [])
+            .map((account) => parseIsoTimeToMs(account?.lastCheckedAt))
+            .filter((value) => Number.isFinite(value));
+
+          if (checkedMsList.length > 0) {
+            baseMs = Math.max(...checkedMsList);
+          }
+        }
+
+        if (!Number.isFinite(baseMs)) {
+          if (!nextPollAt) {
+            nextPollAt = Date.now() + state.pollIntervalMs;
+          }
+          renderPollCountdown();
+          return;
+        }
+
+        let nextAt = baseMs + state.pollIntervalMs;
+        const now = Date.now();
+        if (nextAt <= now) {
+          const intervalSteps = Math.floor((now - nextAt) / state.pollIntervalMs) + 1;
+          nextAt += intervalSteps * state.pollIntervalMs;
+        }
+
+        nextPollAt = nextAt;
+        renderPollCountdown();
+      }
+
+      function startPollCountdownTicker() {
+        if (pollCountdownTimer) {
+          clearInterval(pollCountdownTimer);
+        }
+        renderPollCountdown();
+        pollCountdownTimer = setInterval(renderPollCountdown, 1000);
+      }
+
+      function renderArtistFilters() {
+        const seen = new Set();
+        const artists = state.accounts
+          .map((account) => ({
+            key: normalizeUsername(account.username),
+            label: account.name || account.username,
+          }))
+          .filter((item) => {
+            if (!item.key || seen.has(item.key)) {
+              return false;
+            }
+            seen.add(item.key);
+            return true;
+          })
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        if (state.selectedArtist !== "all" && !artists.some((item) => item.key === state.selectedArtist)) {
+          state.selectedArtist = "all";
+        }
+
+        const options = [{ key: "all", label: "전체" }, ...artists];
+        artistFiltersEl.innerHTML = options
+          .map((item) => {
+            const activeClass = item.key === state.selectedArtist ? " is-active" : "";
+            return `<button class="artist-filter-btn${activeClass}" type="button" data-artist="${escapeHtml(item.key)}">${escapeHtml(item.label)}</button>`;
+          })
+          .join("");
+      }
+
       function renderCards() {
-        cardsEl.innerHTML = state.accounts
+        const visibleAccounts = state.selectedArtist === "all"
+          ? state.accounts
+          : state.accounts.filter((account) => normalizeUsername(account.username) === state.selectedArtist);
+        cardsEl.classList.toggle("single-artist-view", state.selectedArtist !== "all");
+
+        if (!visibleAccounts.length) {
+          const message = state.accounts.length
+            ? "선택한 아티스트의 게시글이 없습니다."
+            : "아직 등록된 아티스트가 없습니다.";
+          cardsEl.innerHTML = `<article class="card"><div class="tweet-text">${message}</div></article>`;
+          return;
+        }
+
+        cardsEl.innerHTML = visibleAccounts
           .map((account, idx) => {
             const recentTweets = Array.isArray(account.recentTweets) ? account.recentTweets : [];
             const tweetList = recentTweets.length
@@ -522,10 +668,23 @@
           .join("");
       }
 
+      function renderDashboard() {
+        renderArtistFilters();
+        renderCards();
+      }
+
       function mergeAccounts(incoming) {
-        const byUsername = new Map(state.accounts.map((x) => [x.username.toLowerCase(), x]));
+        const byUsername = new Map(
+          state.accounts
+            .map((item) => [normalizeUsername(item.username), item])
+            .filter(([key]) => key),
+        );
         for (const item of incoming || []) {
-          byUsername.set(item.username.toLowerCase(), item);
+          const usernameKey = normalizeUsername(item.username);
+          if (!usernameKey) {
+            continue;
+          }
+          byUsername.set(usernameKey, item);
         }
         state.accounts = Array.from(byUsername.values()).sort((a, b) => a.name.localeCompare(b.name));
       }
@@ -534,7 +693,7 @@
         const newPosts = [];
 
         for (const account of incoming || []) {
-          const usernameKey = String(account?.username || "").toLowerCase();
+          const usernameKey = normalizeUsername(account?.username);
           if (!usernameKey) {
             continue;
           }
@@ -552,7 +711,7 @@
         }
 
         mergeAccounts(incoming);
-        renderCards();
+        renderDashboard();
         hasInitialSnapshot = true;
 
         for (const account of newPosts) {
@@ -562,12 +721,25 @@
       }
 
       function applyRuntimeFlags(data) {
-        state.tokenConfigured = Boolean(data.tokenConfigured);
-        state.canPersistAccounts = data.canPersistAccounts !== false;
-        state.supportsRealtimeSse = data.supportsRealtimeSse !== false;
-        state.pollIntervalMs = Math.max(5000, Number(data.pollIntervalMs) || 30000);
-
-        pollPill.textContent = `주기: ${Math.round(state.pollIntervalMs / 1000)}초`;
+        if (Object.prototype.hasOwnProperty.call(data, "tokenConfigured")) {
+          state.tokenConfigured = Boolean(data.tokenConfigured);
+        }
+        if (Object.prototype.hasOwnProperty.call(data, "canPersistAccounts")) {
+          state.canPersistAccounts = data.canPersistAccounts !== false;
+        }
+        if (Object.prototype.hasOwnProperty.call(data, "supportsRealtimeSse")) {
+          state.supportsRealtimeSse = data.supportsRealtimeSse !== false;
+        }
+        if (Object.prototype.hasOwnProperty.call(data, "pollIntervalMs")) {
+          const nextPollIntervalMs = Math.max(5000, Number(data.pollIntervalMs) || 30000);
+          const pollIntervalChanged = nextPollIntervalMs !== state.pollIntervalMs;
+          state.pollIntervalMs = nextPollIntervalMs;
+          if (pollIntervalChanged && pollTimer) {
+            startPolling();
+          }
+        } else {
+          renderPollCountdown();
+        }
 
         if (!state.tokenConfigured && !loggedTokenMissing) {
           loggedTokenMissing = true;
@@ -594,6 +766,7 @@
       async function refreshFromApi(detectNewPosts) {
         const data = await fetchStatePayload();
         applyRuntimeFlags(data);
+        syncCountdownFromPayload(data);
         applyStateAccounts(data.accounts || [], detectNewPosts);
       }
 
@@ -601,6 +774,11 @@
         if (pollTimer) {
           clearInterval(pollTimer);
         }
+
+        if (!nextPollAt) {
+          nextPollAt = Date.now() + state.pollIntervalMs;
+        }
+        startPollCountdownTicker();
 
         pollTimer = setInterval(() => {
           refreshFromApi(true).catch((error) => {
@@ -651,19 +829,21 @@
 
         eventSource.addEventListener("state", (event) => {
           const data = JSON.parse(event.data);
+          applyRuntimeFlags(data);
+          syncCountdownFromPayload(data);
           applyStateAccounts(data.accounts || [], false);
         });
 
         eventSource.addEventListener("new_post", (event) => {
           const data = JSON.parse(event.data);
           const account = data.account;
-          const usernameKey = String(account?.username || "").toLowerCase();
+          const usernameKey = normalizeUsername(account?.username);
           if (usernameKey && account.latestTweetId) {
             latestTweetByUsername.set(usernameKey, account.latestTweetId);
           }
           hasInitialSnapshot = true;
           mergeAccounts([account]);
-          renderCards();
+          renderDashboard();
           log(`${account.name} 새 게시글 감지`);
           notifyNewPost(account);
         });
@@ -683,6 +863,18 @@
       }
 
       notifyBtn.addEventListener("click", requestNotificationPermission);
+
+      artistFiltersEl.addEventListener("click", (event) => {
+        if (!(event.target instanceof Element)) {
+          return;
+        }
+        const target = event.target.closest("button[data-artist]");
+        if (!target) {
+          return;
+        }
+        state.selectedArtist = target.dataset.artist || "all";
+        renderDashboard();
+      });
 
       addForm.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -712,7 +904,7 @@
           }
 
           mergeAccounts([data.account]);
-          renderCards();
+          renderDashboard();
           formMsg.textContent = `${data.account.name} 추가 완료`;
           nameInput.value = "";
           usernameInput.value = "";
