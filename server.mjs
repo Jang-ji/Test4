@@ -6,6 +6,49 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+function loadEnvFileSyncCompatible(content) {
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const delimiterIndex = trimmed.indexOf("=");
+    if (delimiterIndex <= 0) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, delimiterIndex).trim();
+    if (!key || process.env[key] !== undefined || /\s/.test(key)) {
+      continue;
+    }
+
+    let value = trimmed.slice(delimiterIndex + 1);
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+}
+
+async function loadEnvFiles() {
+  const files = [".env", ".env.example"];
+  for (const file of files) {
+    const filePath = path.join(__dirname, file);
+    try {
+      const content = await fs.readFile(filePath, "utf-8");
+      loadEnvFileSyncCompatible(content);
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        console.error(`Failed to load ${file}:`, error.message);
+      }
+    }
+  }
+}
+
+await loadEnvFiles();
+
 const PORT = Number(process.env.PORT || 8787);
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS || 30000);
 const X_API_BASE_URL = process.env.X_API_BASE_URL || "https://api.x.com/2";
