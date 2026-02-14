@@ -1,0 +1,19 @@
+# Node / package manager
+node_modules/
+npm-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local reference assets
+Responsive Multi-User Feed/

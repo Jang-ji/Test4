@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>X K-POP 알림 보드</title>
+    <style>
+      :root {
+        --bg: #000000;
+        --surface: #000000;
+        --surface-soft: #16181c;
+        --line: #2f3336;
+        --text: #e7e9ea;
+        --muted: #71767b;
+        --accent: #1d9bf0;
+        --accent-soft: rgba(29, 155, 240, 0.18);
+        --danger: #f4212e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
+      }
+
+      body {
+        min-height: 100vh;
+        color: var(--text);
+        line-height: 1.4;
+        font-family: "Pretendard", "SUIT", "Noto Sans KR", sans-serif;
+        background:
+          radial-gradient(1200px 520px at 95% -10%, rgba(29, 155, 240, 0.12), transparent 55%),
+          radial-gradient(1000px 480px at -10% 110%, rgba(29, 155, 240, 0.08), transparent 60%),
+          var(--bg);
+      }
+
+      .wrap {
+        width: min(1240px, calc(100% - 24px));
+        margin: 14px auto 28px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero,
+      .section,
+      .card {
+        border: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .hero {
+        position: sticky;
+        top: 10px;
+        z-index: 30;
+        padding: clamp(14px, 3.4vw, 22px);
+        border-radius: 18px;
+        backdrop-filter: blur(10px);
+        background: rgba(0, 0, 0, 0.84);
+        animation: rise 420ms ease-out both;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.14rem, 4vw, 1.9rem);
+        line-height: 1.2;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+
+      .sub {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: clamp(0.87rem, 2.7vw, 0.95rem);
+        max-width: 72ch;
+      }
+
+      .toolbar {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 0.84rem;
+        background: var(--surface-soft);
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+      }
+
+      button {
+        border: 1px solid transparent;
+        border-radius: 999px;
+        padding: 10px 14px;
+        font-size: 0.92rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 160ms ease;
+      }
+
+      button:hover {
+        filter: brightness(1.05);
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      button:disabled {
+        opacity: 0.56;
+        cursor: not-allowed;
+        filter: none;
+        transform: none;
+      }
+
+      #notifyBtn {
+        width: 100%;
+        background: var(--accent);
+        color: #ffffff;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .card {
+        border-radius: 16px;
+        padding: 14px;
+        animation: rise 360ms ease-out both;
+      }
+
+      .card h2 {
+        margin: 0;
+        font-size: 1.02rem;
+        line-height: 1.2;
+        font-weight: 700;
+      }
+
+      .handle {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .tweet {
+        margin-top: 10px;
+      }
+
+      .tweets {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+
+      .tweet-item {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 11px;
+        background: rgba(255, 255, 255, 0.01);
+        transition: background-color 140ms ease;
+      }
+
+      .tweet-item:hover {
+        background: rgba(231, 233, 234, 0.04);
+      }
+
+      .tweet-text {
+        font-size: 0.92rem;
+        line-height: 1.48;
+        color: var(--text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .media-grid {
+        margin-top: 9px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .media-item {
+        position: relative;
+        display: block;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: #0f1115;
+        aspect-ratio: 1 / 1;
+      }
+
+      .media-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .media-type {
+        position: absolute;
+        right: 6px;
+        bottom: 6px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #ffffff;
+        background: rgba(0, 0, 0, 0.72);
+        border-radius: 999px;
+        padding: 2px 7px;
+        text-transform: uppercase;
+      }
+
+      .meta {
+        margin-top: 8px;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .error {
+        margin-top: 8px;
+        font-size: 0.84rem;
+        color: var(--danger);
+        font-weight: 700;
+      }
+
+      .section {
+        border-radius: 16px;
+        padding: 14px;
+        animation: rise 460ms ease-out both;
+      }
+
+      .section h3 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 10px 12px;
+        font: inherit;
+        color: var(--text);
+        background: var(--surface-soft);
+      }
+
+      input:disabled {
+        opacity: 0.62;
+        cursor: not-allowed;
+      }
+
+      input::placeholder {
+        color: var(--muted);
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft);
+      }
+
+      #addForm button {
+        background: var(--accent);
+        color: #ffffff;
+      }
+
+      .log {
+        margin-top: 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        max-height: min(28vh, 220px);
+        overflow: auto;
+        background: #0f1115;
+        font-size: 0.84rem;
+      }
+
+      .log-item + .log-item {
+        margin-top: 6px;
+      }
+
+      a {
+        color: var(--accent);
+        word-break: break-word;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (min-width: 560px) {
+        .toolbar {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+
+        #notifyBtn {
+          width: auto;
+        }
+
+        .cards {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .media-grid {
+          grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+        }
+      }
+
+      @media (min-width: 920px) {
+        .wrap {
+          width: min(1240px, calc(100% - 40px));
+          margin: 24px auto 36px;
+          gap: 16px;
+        }
+
+        .cards {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .grid2 {
+          grid-template-columns: 1fr 1fr auto;
+          align-items: start;
+        }
+
+        #addForm button {
+          min-width: 86px;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .pill,
+        .meta {
+          font-size: 0.76rem;
+        }
+
+        .media-item {
+          aspect-ratio: 4 / 3;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <h1>X K-POP 새 게시글 알림</h1>
+        <p class="sub">BTS, Stray Kids, BLACKPINK부터 시작하고 나중에 계정을 추가할 수 있습니다.</p>
+        <div class="toolbar">
+          <button id="notifyBtn" type="button">브라우저 알림 허용</button>
+          <span id="connPill" class="pill">연결 상태: 확인 중</span>
+          <span id="pollPill" class="pill">주기: -</span>
+        </div>
+      </section>
+
+      <section>
+        <div id="cards" class="cards"></div>
+      </section>
+
+      <section class="section">
+        <h3>계정 추가</h3>
+        <form id="addForm" class="grid2">
+          <input id="nameInput" placeholder="표시 이름 (예: NewJeans)" required />
+          <input id="usernameInput" placeholder="X 아이디 (예: NewJeans_ADOR, @ 제외 가능)" required />
+          <button type="submit">추가</button>
+        </form>
+        <div id="formMsg" class="meta"></div>
+      </section>
+
+      <section class="section">
+        <h3>이벤트 로그</h3>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+
+    <script>
+      const cardsEl = document.querySelector("#cards");
+      const notifyBtn = document.querySelector("#notifyBtn");
+      const connPill = document.querySelector("#connPill");
+      const pollPill = document.querySelector("#pollPill");
+      const addForm = document.querySelector("#addForm");
+      const nameInput = document.querySelector("#nameInput");
+      const usernameInput = document.querySelector("#usernameInput");
+      const formMsg = document.querySelector("#formMsg");
+      const logEl = document.querySelector("#log");
+      const addSubmitBtn = addForm.querySelector("button[type='submit']");
+
+      const state = {
+        accounts: [],
+        tokenConfigured: false,
+        canPersistAccounts: true,
+        supportsRealtimeSse: true,
+        pollIntervalMs: 30000,
+      };
+      const latestTweetByUsername = new Map();
+      let hasInitialSnapshot = false;
+      let pollTimer = null;
+      let loggedTokenMissing = false;
+      let loggedPollingMode = false;
+
+      function log(message) {
+        const div = document.createElement("div");
+        div.className = "log-item";
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+        logEl.prepend(div);
+        if (logEl.childElementCount > 100) {
+          logEl.removeChild(logEl.lastElementChild);
+        }
+      }
+
+      function setAddFormEnabled(enabled) {
+        nameInput.disabled = !enabled;
+        usernameInput.disabled = !enabled;
+        addSubmitBtn.disabled = !enabled;
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function renderCards() {
+        cardsEl.innerHTML = state.accounts
+          .map((account, idx) => {
+            const recentTweets = Array.isArray(account.recentTweets) ? account.recentTweets : [];
+            const tweetList = recentTweets.length
+              ? recentTweets
+                  .map((tweet) => {
+                    const time = tweet.createdAt ? new Date(tweet.createdAt).toLocaleString() : "-";
+                    const link = tweet.url
+                      ? `<a href="${escapeHtml(tweet.url)}" target="_blank" rel="noreferrer">게시글 열기</a>`
+                      : "";
+                    const text = tweet.text ? escapeHtml(tweet.text) : "(본문 없음)";
+                    const media = Array.isArray(tweet.media) ? tweet.media : [];
+                    const mediaHtml = media.length
+                      ? `
+                        <div class="media-grid">
+                          ${media
+                            .map((item) => {
+                              const src = item?.displayUrl ? escapeHtml(item.displayUrl) : "";
+                              if (!src) {
+                                return "";
+                              }
+
+                              const openUrl = escapeHtml(item.openUrl || item.displayUrl);
+                              const label = item?.type ? escapeHtml(item.type) : "";
+                              return `
+                                <a class="media-item" href="${openUrl}" target="_blank" rel="noreferrer">
+                                  <img src="${src}" alt="tweet-media" loading="lazy" />
+                                  ${label ? `<span class="media-type">${label}</span>` : ""}
+                                </a>
+                              `;
+                            })
+                            .join("")}
+                        </div>
+                      `
+                      : "";
+                    return `
+                      <li class="tweet-item">
+                        <div class="tweet-text">${text}</div>
+                        ${mediaHtml}
+                        <div class="meta">게시 시각: ${time}</div>
+                        <div class="meta">${link}</div>
+                      </li>
+                    `;
+                  })
+                  .join("")
+              : `<li class="tweet-item"><div class="tweet-text">아직 감지된 게시글이 없습니다.</div></li>`;
+            const error = account.error ? `<div class="error">${escapeHtml(account.error)}</div>` : "";
+            const checkedAt = account.lastCheckedAt ? new Date(account.lastCheckedAt).toLocaleTimeString() : "-";
+
+            return `
+              <article class="card" style="animation-delay:${idx * 80}ms">
+                <h2>${escapeHtml(account.name)}</h2>
+                <div class="handle">@${escapeHtml(account.username)}</div>
+                <div class="tweet">
+                  <ul class="tweets">${tweetList}</ul>
+                </div>
+                <div class="meta">마지막 조회: ${checkedAt}</div>
+                ${error}
+              </article>
+            `;
+          })
+          .join("");
+      }
+
+      function mergeAccounts(incoming) {
+        const byUsername = new Map(state.accounts.map((x) => [x.username.toLowerCase(), x]));
+        for (const item of incoming || []) {
+          byUsername.set(item.username.toLowerCase(), item);
+        }
+        state.accounts = Array.from(byUsername.values()).sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      function applyStateAccounts(incoming, detectNewPosts) {
+        const newPosts = [];
+
+        for (const account of incoming || []) {
+          const usernameKey = String(account?.username || "").toLowerCase();
+          if (!usernameKey) {
+            continue;
+          }
+
+          const previousLatestId = latestTweetByUsername.get(usernameKey) || "";
+          const nextLatestId = account.latestTweetId || "";
+
+          if (hasInitialSnapshot && detectNewPosts && previousLatestId && nextLatestId && previousLatestId !== nextLatestId) {
+            newPosts.push(account);
+          }
+
+          if (nextLatestId) {
+            latestTweetByUsername.set(usernameKey, nextLatestId);
+          }
+        }
+
+        mergeAccounts(incoming);
+        renderCards();
+        hasInitialSnapshot = true;
+
+        for (const account of newPosts) {
+          log(`${account.name} 새 게시글 감지`);
+          notifyNewPost(account);
+        }
+      }
+
+      function applyRuntimeFlags(data) {
+        state.tokenConfigured = Boolean(data.tokenConfigured);
+        state.canPersistAccounts = data.canPersistAccounts !== false;
+        state.supportsRealtimeSse = data.supportsRealtimeSse !== false;
+        state.pollIntervalMs = Math.max(5000, Number(data.pollIntervalMs) || 30000);
+
+        pollPill.textContent = `주기: ${Math.round(state.pollIntervalMs / 1000)}초`;
+
+        if (!state.tokenConfigured && !loggedTokenMissing) {
+          loggedTokenMissing = true;
+          log("서버에 X_BEARER_TOKEN이 없어 실제 조회가 동작하지 않습니다.");
+        }
+
+        if (!state.canPersistAccounts) {
+          setAddFormEnabled(false);
+          formMsg.textContent = "이 배포 환경에서는 웹에서 계정 저장 추가가 비활성화되어 있습니다.";
+        } else {
+          setAddFormEnabled(true);
+        }
+      }
+
+      async function fetchStatePayload() {
+        const res = await fetch("/api/state", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "상태 조회 실패");
+        }
+        return data;
+      }
+
+      async function refreshFromApi(detectNewPosts) {
+        const data = await fetchStatePayload();
+        applyRuntimeFlags(data);
+        applyStateAccounts(data.accounts || [], detectNewPosts);
+      }
+
+      function startPolling() {
+        if (pollTimer) {
+          clearInterval(pollTimer);
+        }
+
+        pollTimer = setInterval(() => {
+          refreshFromApi(true).catch((error) => {
+            connPill.textContent = "연결 상태: 폴링 오류";
+            log(`폴링 오류: ${error instanceof Error ? error.message : String(error)}`);
+          });
+        }, state.pollIntervalMs);
+      }
+
+      async function requestNotificationPermission() {
+        if (!("Notification" in window)) {
+          alert("이 브라우저는 알림 기능을 지원하지 않습니다.");
+          return;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission === "granted") {
+          log("브라우저 알림 권한 허용됨");
+        } else {
+          log("브라우저 알림 권한 거부됨");
+        }
+      }
+
+      function notifyNewPost(account) {
+        if (!("Notification" in window) || Notification.permission !== "granted") {
+          return;
+        }
+
+        const latest = Array.isArray(account.recentTweets) ? account.recentTweets[0] : null;
+        const title = `[새 글] ${account.name} (@${account.username})`;
+        const body = latest?.text?.slice(0, 120) || account.latestTweetText?.slice(0, 120) || "새 게시글이 등록되었습니다.";
+        const notification = new Notification(title, { body });
+        notification.onclick = () => {
+          const url = latest?.url || account.latestTweetUrl;
+          if (url) {
+            window.open(url, "_blank", "noopener,noreferrer");
+          }
+        };
+      }
+
+      function connectEvents() {
+        const eventSource = new EventSource("/events");
+
+        eventSource.addEventListener("connected", () => {
+          connPill.textContent = "연결 상태: 실시간 연결됨";
+          log("실시간 이벤트 연결 완료");
+        });
+
+        eventSource.addEventListener("state", (event) => {
+          const data = JSON.parse(event.data);
+          applyStateAccounts(data.accounts || [], false);
+        });
+
+        eventSource.addEventListener("new_post", (event) => {
+          const data = JSON.parse(event.data);
+          const account = data.account;
+          const usernameKey = String(account?.username || "").toLowerCase();
+          if (usernameKey && account.latestTweetId) {
+            latestTweetByUsername.set(usernameKey, account.latestTweetId);
+          }
+          hasInitialSnapshot = true;
+          mergeAccounts([account]);
+          renderCards();
+          log(`${account.name} 새 게시글 감지`);
+          notifyNewPost(account);
+        });
+
+        eventSource.addEventListener("error", (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            log(`오류: ${data.message}`);
+          } catch {
+            log("서버 오류 이벤트 수신");
+          }
+        });
+
+        eventSource.onerror = () => {
+          connPill.textContent = "연결 상태: 재연결 중";
+        };
+      }
+
+      notifyBtn.addEventListener("click", requestNotificationPermission);
+
+      addForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!state.canPersistAccounts) {
+          formMsg.textContent = "이 배포 환경에서는 계정 추가 저장이 비활성화되어 있습니다.";
+          return;
+        }
+
+        formMsg.textContent = "추가 중...";
+
+        try {
+          const payload = {
+            name: nameInput.value.trim(),
+            username: usernameInput.value.trim(),
+          };
+
+          const res = await fetch("/api/accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || "계정 추가 실패");
+          }
+
+          mergeAccounts([data.account]);
+          renderCards();
+          formMsg.textContent = `${data.account.name} 추가 완료`;
+          nameInput.value = "";
+          usernameInput.value = "";
+          log(`${data.account.name} 목록에 추가됨`);
+        } catch (error) {
+          formMsg.textContent = error instanceof Error ? error.message : String(error);
+        }
+      });
+
+      refreshFromApi(false)
+        .then(() => {
+          if (state.supportsRealtimeSse) {
+            connectEvents();
+          } else {
+            connPill.textContent = "연결 상태: 폴링 모드";
+            if (!loggedPollingMode) {
+              loggedPollingMode = true;
+              log("현재 배포 환경은 SSE를 지원하지 않아 폴링 모드로 동작합니다.");
+            }
+          }
+          startPolling();
+        })
+        .catch((error) => {
+          connPill.textContent = "연결 상태: 초기화 실패";
+          log(`초기화 오류: ${error instanceof Error ? error.message : String(error)}`);
+        });
+    </script>
+  </body>
+</html>
