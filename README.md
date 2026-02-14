@@ -92,3 +92,5 @@ git push -u origin main
 - Vercel에서는 서버 프로세스가 상시 실행되지 않으므로 `SSE 실시간 스트림` 대신 `폴링 모드`로 동작합니다.
 - Vercel에서는 파일시스템 영구 쓰기가 불가능하므로 웹 UI의 `계정 추가 저장`이 비활성화됩니다.
   - 계정 추가는 `config/accounts.json` 수정 후 GitHub push -> Vercel 재배포 방식으로 반영하세요.
+# Test4
+# Test4
